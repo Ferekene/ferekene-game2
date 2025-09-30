@@ -5,19 +5,14 @@ export default {
 	preprocess: vitePreprocess(),
 	kit: {
 		adapter: adapter({
-			pages: 'build',
-			assets: 'build',
-			fallback: 'index.html',
+			pages: '.svelte-kit/output/prerendered/pages',
+			assets: '.svelte-kit/output/client',
+			fallback: undefined,
 			precompress: false,
-			strict: false
+			strict: true
 		}),
-		paths: {
-			base: '',
-			relative: true
-		},
 		prerender: {
-			entries: ['/']
-		},
-		appDir: '_app'
+			entries: ['*']
+		}
 	}
 };

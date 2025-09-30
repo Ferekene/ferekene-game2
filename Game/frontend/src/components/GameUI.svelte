@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { stateGame, stateGameDerived } from '../game/stateGame.svelte';
+	import { stateRGS, stateRGSDerived } from '../game/stateRGS.svelte';
 	import { soundManager } from '../game/soundManager';
+	import { gameEngine } from '../game/gameEngine';
+	import { rgsClient } from '../game/rgsClient';
 	import SpinButton from './SpinButton.svelte';
 	import BalancePanel from './BalancePanel.svelte';
 	import WinPanel from './WinPanel.svelte';
@@ -9,6 +12,30 @@
 
 	let showSettings = $state(false);
 	let showPaytable = $state(false);
+
+	function handleSpin() {
+		if (!stateRGS.canSpin) {
+			console.warn('[GameUI] Cannot spin');
+			return;
+		}
+
+		soundManager.playOnce('sfx_button');
+		gameEngine.spin(stateRGS.currentBetAmount, 'base');
+	}
+
+	function handleIncreaseBet() {
+		if (stateRGSDerived.canIncreaseBet()) {
+			soundManager.playOnce('sfx_button');
+			stateRGS.increaseBet();
+		}
+	}
+
+	function handleDecreaseBet() {
+		if (stateRGSDerived.canDecreaseBet()) {
+			soundManager.playOnce('sfx_button');
+			stateRGS.decreaseBet();
+		}
+	}
 </script>
 
 <div class="game-ui">
@@ -37,23 +64,28 @@
 	<!-- Bottom Controls -->
 	<div class="bottom-bar">
 		<div class="control-panel">
-			<BalancePanel balance={5000} />
+			<BalancePanel balance={stateRGS.balance} />
 
 			<div class="bet-controls">
-				<button class="btn-bet-control">-</button>
+				<button
+					class="btn-bet-control"
+					onclick={handleDecreaseBet}
+					disabled={!stateRGSDerived.canDecreaseBet() || stateRGS.isLoading}
+				>-</button>
 				<div class="bet-display">
 					<div class="bet-label">BET</div>
-					<div class="bet-amount">$1.00</div>
+					<div class="bet-amount">{rgsClient.displayAmount(stateRGS.currentBetAmount)}</div>
 				</div>
-				<button class="btn-bet-control">+</button>
+				<button
+					class="btn-bet-control"
+					onclick={handleIncreaseBet}
+					disabled={!stateRGSDerived.canIncreaseBet() || stateRGS.isLoading}
+				>+</button>
 			</div>
 
 			<SpinButton
-				disabled={stateGame.isSpinning}
-				onclick={() => {
-					soundManager.playOnce('sfx_button');
-					// Trigger spin via RGS
-				}}
+				disabled={!stateRGS.canSpin || stateGame.isSpinning}
+				onclick={handleSpin}
 			/>
 
 			<WinPanel win={stateGame.currentWin} />
@@ -293,9 +325,14 @@
 		transition: all 0.3s ease;
 	}
 
-	.btn-bet-control:hover {
+	.btn-bet-control:hover:not(:disabled) {
 		background: rgba(255, 215, 0, 0.4);
 		transform: scale(1.1);
+	}
+
+	.btn-bet-control:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.bet-display {

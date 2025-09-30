@@ -9,6 +9,15 @@ export default defineConfig({
 	},
 	build: {
 		target: 'esnext',
-		minify: 'esbuild'
+		minify: 'esbuild',
+		sourcemap: false,
+		rollupOptions: {
+			output: {
+				manualChunks: undefined
+			}
+		}
+	},
+	optimizeDeps: {
+		include: ['stake-engine', 'pixi.js', 'howler', 'xstate']
 	}
 });
