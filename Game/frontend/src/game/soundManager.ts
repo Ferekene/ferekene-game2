@@ -1,0 +1,212 @@
+/**
+ * Sound management system using Howler.js for Golden Fortune Slots
+ */
+
+import { Howl, Howler } from 'howler';
+import { SOUND_MUSIC, SOUND_SFX } from './assets';
+
+export type SoundCategory = 'music' | 'sfx' | 'master';
+
+interface SoundInstance {
+	howl: Howl;
+	category: SoundCategory;
+}
+
+export class SoundManager {
+	private sounds = new Map<string, SoundInstance>();
+	private currentMusic: string | null = null;
+	private volumes = {
+		master: 1.0,
+		music: 0.7,
+		sfx: 0.8,
+	};
+	private muted = {
+		master: false,
+		music: false,
+		sfx: false,
+	};
+
+	constructor() {
+		this.loadPreferences();
+	}
+
+	async preloadAll(): Promise<void> {
+		const allSounds = [...SOUND_MUSIC, ...SOUND_SFX];
+
+		const promises = allSounds.map(sound => {
+			return new Promise<void>((resolve) => {
+				const category: SoundCategory = SOUND_MUSIC.includes(sound) ? 'music' : 'sfx';
+
+				const howl = new Howl({
+					src: [sound.url],
+					loop: category === 'music',
+					volume: this.getEffectiveVolume(category),
+					preload: true,
+					onload: () => resolve(),
+					onloaderror: (id, error) => {
+						console.error(`Failed to load sound: ${sound.name}`, error);
+						resolve(); // Continue even if one fails
+					},
+				});
+
+				this.sounds.set(sound.name, { howl, category });
+			});
+		});
+
+		await Promise.all(promises);
+	}
+
+	playOnce(name: string, volume: number = 1.0): void {
+		const sound = this.sounds.get(name);
+		if (!sound) {
+			console.warn(`Sound not found: ${name}`);
+			return;
+		}
+
+		if (this.isMuted('sfx') || this.isMuted('master')) {
+			return;
+		}
+
+		const effectiveVolume = this.getEffectiveVolume('sfx') * volume;
+		sound.howl.volume(effectiveVolume);
+		sound.howl.play();
+	}
+
+	playMusic(name: string, fadeIn: number = 1000): void {
+		if (this.currentMusic === name) {
+			return;
+		}
+
+		// Fade out current music
+		if (this.currentMusic) {
+			this.stopMusic(1000);
+		}
+
+		const sound = this.sounds.get(name);
+		if (!sound) {
+			console.warn(`Music not found: ${name}`);
+			return;
+		}
+
+		if (this.isMuted('music') || this.isMuted('master')) {
+			this.currentMusic = name;
+			return;
+		}
+
+		this.currentMusic = name;
+		sound.howl.volume(0);
+		sound.howl.play();
+		sound.howl.fade(0, this.getEffectiveVolume('music'), fadeIn);
+	}
+
+	stopMusic(fadeOut: number = 1000): void {
+		if (!this.currentMusic) {
+			return;
+		}
+
+		const sound = this.sounds.get(this.currentMusic);
+		if (sound) {
+			sound.howl.fade(sound.howl.volume(), 0, fadeOut);
+			setTimeout(() => {
+				sound.howl.stop();
+			}, fadeOut);
+		}
+
+		this.currentMusic = null;
+	}
+
+	playLoop(name: string, volume: number = 1.0): void {
+		const sound = this.sounds.get(name);
+		if (!sound) {
+			console.warn(`Sound not found: ${name}`);
+			return;
+		}
+
+		if (this.isMuted('sfx') || this.isMuted('master')) {
+			return;
+		}
+
+		const effectiveVolume = this.getEffectiveVolume('sfx') * volume;
+		sound.howl.volume(effectiveVolume);
+		sound.howl.loop(true);
+		sound.howl.play();
+	}
+
+	stop(name: string): void {
+		const sound = this.sounds.get(name);
+		if (sound) {
+			sound.howl.stop();
+		}
+	}
+
+	stopAll(): void {
+		this.sounds.forEach(sound => sound.howl.stop());
+		this.currentMusic = null;
+	}
+
+	setVolume(category: SoundCategory, volume: number): void {
+		this.volumes[category] = Math.max(0, Math.min(1, volume));
+		this.updateAllVolumes();
+		this.savePreferences();
+	}
+
+	getVolume(category: SoundCategory): number {
+		return this.volumes[category];
+	}
+
+	setMuted(category: SoundCategory, muted: boolean): void {
+		this.muted[category] = muted;
+		this.updateAllVolumes();
+		this.savePreferences();
+	}
+
+	isMuted(category: SoundCategory): boolean {
+		return this.muted[category];
+	}
+
+	toggleMute(category: SoundCategory): void {
+		this.setMuted(category, !this.muted[category]);
+	}
+
+	private getEffectiveVolume(category: 'music' | 'sfx'): number {
+		if (this.muted.master || this.muted[category]) {
+			return 0;
+		}
+		return this.volumes.master * this.volumes[category];
+	}
+
+	private updateAllVolumes(): void {
+		this.sounds.forEach((sound, name) => {
+			const effectiveVolume = this.getEffectiveVolume(sound.category);
+			sound.howl.volume(effectiveVolume);
+		});
+	}
+
+	private savePreferences(): void {
+		try {
+			localStorage.setItem('sound_volumes', JSON.stringify(this.volumes));
+			localStorage.setItem('sound_muted', JSON.stringify(this.muted));
+		} catch (error) {
+			console.error('Failed to save sound preferences', error);
+		}
+	}
+
+	private loadPreferences(): void {
+		try {
+			const volumesStr = localStorage.getItem('sound_volumes');
+			const mutedStr = localStorage.getItem('sound_muted');
+
+			if (volumesStr) {
+				this.volumes = { ...this.volumes, ...JSON.parse(volumesStr) };
+			}
+
+			if (mutedStr) {
+				this.muted = { ...this.muted, ...JSON.parse(mutedStr) };
+			}
+		} catch (error) {
+			console.error('Failed to load sound preferences', error);
+		}
+	}
+}
+
+export const soundManager = new SoundManager();

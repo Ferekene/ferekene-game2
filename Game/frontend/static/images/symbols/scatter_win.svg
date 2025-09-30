@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="gradscatter" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#b29600;stop-opacity:1" />
+        </linearGradient>
+        
+        <filter id="glow">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+        
+        <filter id="motion-blur">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="0,5" />
+        </filter>
+    </defs>
+
+    <!-- Background circle -->
+    <circle cx="150" cy="150" r="130" fill="url(#gradscatter)" opacity="1.0" />
+
+    <!-- Inner circle -->
+    <circle cx="150" cy="150" r="110" fill="none" stroke="white" stroke-width="4" opacity="0.3"/>
+
+    <!-- Symbol text -->
+    <text x="150" y="150" font-family="Arial, sans-serif" font-size="80" font-weight="bold"
+          fill="white" text-anchor="middle" dominant-baseline="central"
+          style="text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+        ⭐
+    </text>
+
+    <circle cx="150" cy="150" r="140" fill="none" stroke="#FFD700" stroke-width="6" opacity="0.8" filter="url(#glow)"/>
+</svg>
