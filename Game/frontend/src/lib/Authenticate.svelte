@@ -74,10 +74,7 @@
 					}));
 
 					stateRGS.setBetAmount(defaultBet);
-					stateRGS.update(state => ({
-						...state,
-						availableBetLevels: betAmountOptions,
-					}));
+					stateRGS.setAvailableBetLevels(betAmountOptions);
 				}
 
 				const betState = get(stateBet);

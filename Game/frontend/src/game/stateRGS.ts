@@ -47,6 +47,8 @@ function createRGSState() {
 			update((state) => ({ ...state, error })),
 		setBetAmount: (amount: number) =>
 			update((state) => ({ ...state, currentBetAmount: amount })),
+		setAvailableBetLevels: (levels: number[]) =>
+			update((state) => ({ ...state, availableBetLevels: levels })),
 		increaseBet: () =>
 			update((state) => {
 				if (state.currentBetLevelIndex < state.availableBetLevels.length - 1) {
