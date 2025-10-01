@@ -4,7 +4,7 @@
  */
 
 import { get } from 'svelte/store';
-import { requestBet, requestEndRound } from '../lib/rgsRequests';
+import { getRGSClient, ParseAmount } from '../lib/rgsClient';
 import { stateUrlDerived } from '../lib/stateUrl';
 import { stateBet } from '../lib/stateBet';
 import { saveGameSession, saveGameRound, logError } from '../lib/supabase';
@@ -65,53 +65,47 @@ class GameEngine {
 			console.log(`[GameEngine] Starting spin - Bet: ${betAmount}, Mode: ${mode}`);
 
 			stateRGS.setLoading(true);
-			stateRGS.setRoundActive(true);
-			stateRGS.updateCanSpin();
 			stateGame.setSpinning(true);
 
 			eventEmitter.broadcast({ type: 'boardSpin' });
 			soundManager.playOnce('sfx_spin');
 
-			const betState = get(stateBet);
-			const response = await requestBet({
-				sessionID: stateUrlDerived.sessionID(),
-				rgsUrl: stateUrlDerived.rgsUrl(),
-				currency: betState.currency,
+			const rgsClient = getRGSClient();
+			const response = await rgsClient.Play({
 				amount: betAmount,
 				mode: mode,
 			});
 
 			console.log('[GameEngine] Play response received', response);
 
-			// Update balance
 			if (response.balance) {
-				stateRGS.setBalance(response.balance.amount, response.balance.currency);
+				const balanceAmount = ParseAmount(response.balance.amount);
+
 				stateBet.update(state => ({
 					...state,
-					balanceAmount: response.balance.amount,
+					balanceAmount,
 					currency: response.balance.currency
 				}));
 
-				// Save updated balance
 				await saveGameSession({
 					session_id: stateUrlDerived.sessionID(),
-					balance: response.balance.amount,
+					balance: balanceAmount,
 					currency: response.balance.currency,
 				});
 			}
 
-			// Process round
 			if (response.round && response.round.state) {
-				const bookEvents = response.round.state;
+				const bookEvents = response.round.state as BookEvent[];
 				await this.processBookEvents(bookEvents);
 
-				// Save round to Supabase
 				const gameState = get(stateGame);
+				const payoutAmount = response.round.payout ? ParseAmount(response.round.payout) : 0;
+
 				await saveGameRound({
 					session_id: stateUrlDerived.sessionID(),
 					round_id: response.round.betID,
 					bet_amount: betAmount,
-					win_amount: response.round.payout,
+					win_amount: payoutAmount,
 					payout_multiplier: response.round.payoutMultiplier,
 					symbols: gameState.board,
 					book_events: bookEvents,
@@ -122,7 +116,9 @@ class GameEngine {
 			stateRGS.setLoading(false);
 			stateGame.setSpinning(false);
 
-			await this.endRound();
+			if (!response.round.active) {
+				await this.endRound();
+			}
 		} catch (error) {
 			console.error('[GameEngine] Spin failed', error);
 			const errorMessage = error instanceof Error ? error.message : 'Spin failed';
@@ -248,12 +244,8 @@ class GameEngine {
 	private async endRound(): Promise<void> {
 		try {
 			console.log('[GameEngine] Ending round');
-			await requestEndRound({
-				sessionID: stateUrlDerived.sessionID(),
-				rgsUrl: stateUrlDerived.rgsUrl(),
-			});
-			stateRGS.setRoundActive(false);
-			stateRGS.updateCanSpin();
+			const rgsClient = getRGSClient();
+			await rgsClient.EndRound();
 		} catch (error) {
 			console.error('[GameEngine] Failed to end round', error);
 		}

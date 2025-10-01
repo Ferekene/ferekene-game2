@@ -12,7 +12,7 @@
     "@supabase/supabase-js": "^2.39.0",
     "howler": "^2.2.4",
     "pixi.js": "^7.4.2",
-    "stake-engine": "file:../../ts-client"
+    "stake-engine": "^0.1.31"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^1.0.6",

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
-	import { requestAuthenticate, API_AMOUNT_MULTIPLIER } from './rgsRequests';
-	import { stateUrlDerived, isValidSession } from './stateUrl';
+	import { initializeRGSClient, ParseAmount } from './rgsClient';
+	import { setupAllEventListeners, removeAllEventListeners } from './eventListeners';
 	import { stateBet } from './stateBet';
 	import { stateConfig } from './stateConfig';
 	import { stateRGS } from '../game/stateRGS';
@@ -46,61 +46,43 @@
 
 	const authenticate = async () => {
 		try {
-			if (!isValidSession()) {
-				console.warn('[Auth] Missing URL parameters. Starting in demo mode...');
-				isDemoMode = true;
-				setupDemoMode();
-				return;
-			}
+			const rgsClient = initializeRGSClient();
 
-			console.log('[Auth] Starting authentication...');
-			console.log('[Auth] SessionID:', stateUrlDerived.sessionID());
-			console.log('[Auth] RGS URL:', stateUrlDerived.rgsUrl());
+			console.log('[Auth] Starting authentication with SDK...');
 
-			const authenticateData = await requestAuthenticate({
-				rgsUrl: stateUrlDerived.rgsUrl(),
-				sessionID: stateUrlDerived.sessionID(),
-				language: stateUrlDerived.lang(),
-			});
+			const authenticateData = await rgsClient.Authenticate();
 
-			if (authenticateData?.error) {
-				throw new Error(authenticateData.error.message || 'Authentication failed');
-			}
-
-			console.log('[Auth] Response:', authenticateData);
+			console.log('[Auth] SDK Response:', authenticateData);
 
 			if (authenticateData?.balance) {
+				const balanceAmount = ParseAmount(authenticateData.balance.amount);
+
 				stateBet.update(state => ({
 					...state,
 					currency: authenticateData.balance.currency,
-					balanceAmount: authenticateData.balance.amount / API_AMOUNT_MULTIPLIER,
+					balanceAmount,
 				}));
 
-				const betState = get(stateBet);
-				stateRGS.setBalance(betState.balanceAmount, betState.currency);
+				stateRGS.setBalance(balanceAmount, authenticateData.balance.currency);
 
-				console.log('[Auth] Balance set:', betState.balanceAmount, betState.currency);
+				console.log('[Auth] Balance set:', balanceAmount, authenticateData.balance.currency);
 			}
 
 			if (authenticateData?.config) {
-				const betAmountOptions = (authenticateData.config.betLevels || []).map(
-					(level) => level / API_AMOUNT_MULTIPLIER,
-				);
+				const betAmountOptions = authenticateData.config.betLevels;
 				const betMenuOptions = betAmountOptions.filter((_, index) =>
 					MOST_USED_BET_INDEXES.includes(index),
 				);
 
 				stateConfig.update(state => ({
 					...state,
-					jurisdiction: authenticateData.config.jurisdiction,
+					jurisdiction: authenticateData.jurisdictionFlags,
 					betAmountOptions,
 					betMenuOptions,
 				}));
 
 				if (betAmountOptions.length > 0) {
-					const defaultBet = authenticateData.config.defaultBetLevel
-						? authenticateData.config.defaultBetLevel / API_AMOUNT_MULTIPLIER
-						: betAmountOptions[0];
+					const defaultBet = authenticateData.config.defaultBetLevel || betAmountOptions[0];
 
 					stateBet.update(state => ({
 						...state,
@@ -129,10 +111,9 @@
 
 				if (authenticateData.round?.amount) {
 					const betState = get(stateBet);
-					const betAmountValue =
-						authenticateData.round.amount > 0
-							? authenticateData.round.amount / API_AMOUNT_MULTIPLIER
-							: betState.betAmount;
+					const betAmountValue = authenticateData.round.amount > 0
+						? authenticateData.round.amount
+						: betState.betAmount;
 
 					stateBet.update(state => ({
 						...state,
@@ -163,14 +144,27 @@
 			console.log('[Auth] Authentication successful!');
 		} catch (error) {
 			console.error('[Auth] Authentication failed:', error);
+
+			if (error instanceof Error && error.message.includes('sessionID is not in set in url parameters')) {
+				console.warn('[Auth] Missing URL parameters. Starting in demo mode...');
+				isDemoMode = true;
+				setupDemoMode();
+				return;
+			}
+
 			authError = error instanceof Error ? error.message : 'Authentication failed';
 			stateRGS.setError(authError);
 		}
 	};
 
 	onMount(async () => {
+		setupAllEventListeners();
 		await authenticate();
 		authenticated = true;
+	});
+
+	onDestroy(() => {
+		removeAllEventListeners();
 	});
 </script>
 
