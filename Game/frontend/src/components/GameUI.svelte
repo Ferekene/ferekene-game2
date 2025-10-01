@@ -1,37 +1,50 @@
 <script lang="ts">
-	import { stateGame, stateGameDerived } from '../game/stateGame.svelte';
-	import { stateRGS, stateRGSDerived } from '../game/stateRGS.svelte';
+	import { stateGame, stateGameDerived } from '../game/stateGame';
+	import { stateRGS, stateRGSDerived } from '../game/stateRGS';
 	import { soundManager } from '../game/soundManager';
 	import { gameEngine } from '../game/gameEngine';
-	import { stateBet } from '../lib/stateBet.svelte';
+	import { stateBet } from '../lib/stateBet';
 	import SpinButton from './SpinButton.svelte';
 	import BalancePanel from './BalancePanel.svelte';
 	import WinPanel from './WinPanel.svelte';
 	import FreeSpinCounter from './FreeSpinCounter.svelte';
 	import SettingsButton from './SettingsButton.svelte';
 
-	let showSettings = $state(false);
-	let showPaytable = $state(false);
+	let showSettings = false;
+	let showPaytable = false;
+
+	$: currentBalance = $stateRGS.balance;
+	$: currentWin = $stateGame.currentWin;
+	$: freeSpinCurrent = $stateGame.freeSpinCurrent;
+	$: freeSpinTotal = $stateGame.freeSpinTotal;
+	$: currentBetAmount = $stateRGS.currentBetAmount;
+	$: currency = $stateBet.currency;
+	$: canSpin = $stateRGS.canSpin;
+	$: isSpinning = $stateGame.isSpinning;
+	$: isLoading = $stateRGS.isLoading;
+	$: isInFreeSpin = $stateGameDerived.isInFreeSpin;
+	$: canIncreaseBet = $stateRGSDerived.canIncreaseBet;
+	$: canDecreaseBet = $stateRGSDerived.canDecreaseBet;
 
 	function handleSpin() {
-		if (!stateRGS.canSpin) {
+		if (!$stateRGS.canSpin) {
 			console.warn('[GameUI] Cannot spin');
 			return;
 		}
 
 		soundManager.playOnce('sfx_button');
-		gameEngine.spin(stateRGS.currentBetAmount, 'base');
+		gameEngine.spin($stateRGS.currentBetAmount, 'base');
 	}
 
 	function handleIncreaseBet() {
-		if (stateRGSDerived.canIncreaseBet()) {
+		if ($stateRGSDerived.canIncreaseBet) {
 			soundManager.playOnce('sfx_button');
 			stateRGS.increaseBet();
 		}
 	}
 
 	function handleDecreaseBet() {
-		if (stateRGSDerived.canDecreaseBet()) {
+		if ($stateRGSDerived.canDecreaseBet) {
 			soundManager.playOnce('sfx_button');
 			stateRGS.decreaseBet();
 		}
@@ -47,48 +60,48 @@
 
 		<div class="top-controls">
 			<SettingsButton onclick={() => (showSettings = !showSettings)} />
-			<button class="btn-paytable" onclick={() => (showPaytable = !showPaytable)}>
+			<button class="btn-paytable" on:click={() => (showPaytable = !showPaytable)}>
 				<span>💎</span>
 			</button>
 		</div>
 	</div>
 
 	<!-- Free Spin Counter -->
-	{#if stateGameDerived.isInFreeSpin()}
+	{#if $isInFreeSpin}
 		<FreeSpinCounter
-			current={stateGame.freeSpinCurrent}
-			total={stateGame.freeSpinTotal}
+			current={freeSpinCurrent}
+			total={freeSpinTotal}
 		/>
 	{/if}
 
 	<!-- Bottom Controls -->
 	<div class="bottom-bar">
 		<div class="control-panel">
-			<BalancePanel balance={stateRGS.balance} />
+			<BalancePanel balance={currentBalance} />
 
 			<div class="bet-controls">
 				<button
 					class="btn-bet-control"
-					onclick={handleDecreaseBet}
-					disabled={!stateRGSDerived.canDecreaseBet() || stateRGS.isLoading}
+					on:click={handleDecreaseBet}
+					disabled={!$canDecreaseBet || isLoading}
 				>-</button>
 				<div class="bet-display">
 					<div class="bet-label">BET</div>
-					<div class="bet-amount">{stateBet.currency} {stateRGS.currentBetAmount.toFixed(2)}</div>
+					<div class="bet-amount">{currency} {currentBetAmount.toFixed(2)}</div>
 				</div>
 				<button
 					class="btn-bet-control"
-					onclick={handleIncreaseBet}
-					disabled={!stateRGSDerived.canIncreaseBet() || stateRGS.isLoading}
+					on:click={handleIncreaseBet}
+					disabled={!$canIncreaseBet || isLoading}
 				>+</button>
 			</div>
 
 			<SpinButton
-				disabled={!stateRGS.canSpin || stateGame.isSpinning}
+				disabled={!canSpin || isSpinning}
 				onclick={handleSpin}
 			/>
 
-			<WinPanel win={stateGame.currentWin} />
+			<WinPanel win={currentWin} />
 
 			<div class="secondary-controls">
 				<button class="btn-secondary" title="Auto Spin">
@@ -103,11 +116,11 @@
 
 	<!-- Settings Modal -->
 	{#if showSettings}
-		<div class="modal-overlay" onclick={() => (showSettings = false)}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" on:click={() => (showSettings = false)}>
+			<div class="modal" on:click={(e) => e.stopPropagation()}>
 				<div class="modal-header">
 					<h3>Settings</h3>
-					<button class="btn-close" onclick={() => (showSettings = false)}>×</button>
+					<button class="btn-close" on:click={() => (showSettings = false)}>×</button>
 				</div>
 
 				<div class="modal-content">
@@ -118,7 +131,7 @@
 							min="0"
 							max="100"
 							value={soundManager.getVolume('master') * 100}
-							oninput={(e) =>
+							on:input={(e) =>
 								soundManager.setVolume('master', Number(e.currentTarget.value) / 100)}
 						/>
 					</div>
@@ -130,7 +143,7 @@
 							min="0"
 							max="100"
 							value={soundManager.getVolume('music') * 100}
-							oninput={(e) =>
+							on:input={(e) =>
 								soundManager.setVolume('music', Number(e.currentTarget.value) / 100)}
 						/>
 					</div>
@@ -142,7 +155,7 @@
 							min="0"
 							max="100"
 							value={soundManager.getVolume('sfx') * 100}
-							oninput={(e) =>
+							on:input={(e) =>
 								soundManager.setVolume('sfx', Number(e.currentTarget.value) / 100)}
 						/>
 					</div>
@@ -152,7 +165,7 @@
 							<input
 								type="checkbox"
 								checked={soundManager.isMuted('master')}
-								onchange={(e) => soundManager.setMuted('master', e.currentTarget.checked)}
+								on:change={(e) => soundManager.setMuted('master', e.currentTarget.checked)}
 							/>
 							Mute All Sounds
 						</label>
@@ -164,11 +177,11 @@
 
 	<!-- Paytable Modal -->
 	{#if showPaytable}
-		<div class="modal-overlay" onclick={() => (showPaytable = false)}>
-			<div class="modal paytable-modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-overlay" on:click={() => (showPaytable = false)}>
+			<div class="modal paytable-modal" on:click={(e) => e.stopPropagation()}>
 				<div class="modal-header">
 					<h3>Paytable</h3>
-					<button class="btn-close" onclick={() => (showPaytable = false)}>×</button>
+					<button class="btn-close" on:click={() => (showPaytable = false)}>×</button>
 				</div>
 
 				<div class="modal-content paytable-content">

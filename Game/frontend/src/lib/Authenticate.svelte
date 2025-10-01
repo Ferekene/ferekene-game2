@@ -1,17 +1,14 @@
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { requestAuthenticate, API_AMOUNT_MULTIPLIER } from './rgsRequests';
-	import { stateUrlDerived, isValidSession } from './stateUrl.svelte';
-	import { stateBet } from './stateBet.svelte';
-	import { stateConfig } from './stateConfig.svelte';
-	import { stateRGS } from '../game/stateRGS.svelte';
+	import { stateUrlDerived, isValidSession } from './stateUrl';
+	import { stateBet } from './stateBet';
+	import { stateConfig } from './stateConfig';
+	import { stateRGS } from '../game/stateRGS';
 
-	type Props = { children: Snippet };
-
-	const props: Props = $props();
-
-	let authenticated = $state(false);
-	let authError = $state<string | null>(null);
+	let authenticated = false;
+	let authError: string | null = null;
 
 	const MOST_USED_BET_INDEXES = [0, 4, 9, 19, 29, 49, 99];
 
@@ -38,63 +35,93 @@
 			console.log('[Auth] Response:', authenticateData);
 
 			if (authenticateData?.balance) {
-				stateBet.currency = authenticateData.balance.currency;
-				stateBet.balanceAmount = authenticateData.balance.amount / API_AMOUNT_MULTIPLIER;
+				stateBet.update(state => ({
+					...state,
+					currency: authenticateData.balance.currency,
+					balanceAmount: authenticateData.balance.amount / API_AMOUNT_MULTIPLIER,
+				}));
 
-				stateRGS.setBalance(stateBet.balanceAmount, stateBet.currency);
+				const betState = get(stateBet);
+				stateRGS.setBalance(betState.balanceAmount, betState.currency);
 
-				console.log('[Auth] Balance set:', stateBet.balanceAmount, stateBet.currency);
+				console.log('[Auth] Balance set:', betState.balanceAmount, betState.currency);
 			}
 
 			if (authenticateData?.config) {
-				stateConfig.jurisdiction = authenticateData.config.jurisdiction;
-				stateConfig.betAmountOptions = (authenticateData.config.betLevels || []).map(
+				const betAmountOptions = (authenticateData.config.betLevels || []).map(
 					(level) => level / API_AMOUNT_MULTIPLIER,
 				);
-				stateConfig.betMenuOptions = stateConfig.betAmountOptions.filter((_, index) =>
+				const betMenuOptions = betAmountOptions.filter((_, index) =>
 					MOST_USED_BET_INDEXES.includes(index),
 				);
 
-				if (stateConfig.betAmountOptions.length > 0) {
+				stateConfig.update(state => ({
+					...state,
+					jurisdiction: authenticateData.config.jurisdiction,
+					betAmountOptions,
+					betMenuOptions,
+				}));
+
+				if (betAmountOptions.length > 0) {
 					const defaultBet = authenticateData.config.defaultBetLevel
 						? authenticateData.config.defaultBetLevel / API_AMOUNT_MULTIPLIER
-						: stateConfig.betAmountOptions[0];
-					stateBet.betAmount = defaultBet;
-					stateBet.wageredBetAmount = defaultBet;
+						: betAmountOptions[0];
 
-					stateRGS.currentBetAmount = defaultBet;
-					stateRGS.availableBetLevels = stateConfig.betAmountOptions;
+					stateBet.update(state => ({
+						...state,
+						betAmount: defaultBet,
+						wageredBetAmount: defaultBet,
+					}));
+
+					stateRGS.setBetAmount(defaultBet);
+					stateRGS.update(state => ({
+						...state,
+						availableBetLevels: betAmountOptions,
+					}));
 				}
 
+				const betState = get(stateBet);
 				console.log('[Auth] Config loaded:', {
-					betLevels: stateConfig.betAmountOptions,
-					defaultBet: stateBet.betAmount,
+					betLevels: betAmountOptions,
+					defaultBet: betState.betAmount,
 				});
 			}
 
 			if (authenticateData?.round) {
 				if (authenticateData.round?.state) {
-					stateBet.lastBet = authenticateData.round;
+					stateBet.update(state => ({
+						...state,
+						lastBet: authenticateData.round,
+					}));
 				}
 
 				if (authenticateData.round?.amount) {
+					const betState = get(stateBet);
 					const betAmountValue =
 						authenticateData.round.amount > 0
 							? authenticateData.round.amount / API_AMOUNT_MULTIPLIER
-							: stateBet.betAmount;
-					stateBet.betAmount = betAmountValue;
-					stateBet.wageredBetAmount = betAmountValue;
+							: betState.betAmount;
+
+					stateBet.update(state => ({
+						...state,
+						betAmount: betAmountValue,
+						wageredBetAmount: betAmountValue,
+					}));
 				}
 
 				if (authenticateData.round?.mode) {
-					stateBet.activeBetModeKey = authenticateData.round.mode;
+					stateBet.update(state => ({
+						...state,
+						activeBetModeKey: authenticateData.round.mode,
+					}));
 				}
 
 				stateRGS.setRoundActive(authenticateData.round.active || false);
 
+				const betState = get(stateBet);
 				console.log('[Auth] Active round detected:', {
 					active: authenticateData.round.active,
-					betAmount: stateBet.betAmount,
+					betAmount: betState.betAmount,
 				});
 			}
 
@@ -118,17 +145,17 @@
 {#if authError}
 	<div class="auth-error">
 		<div class="error-container">
-			<h2>🔒 Kimlik Doğrulama Hatası</h2>
+			<h2>🔒 Authentication Error</h2>
 			<p>{authError}</p>
-			<button onclick={() => window.location.reload()}>Tekrar Dene</button>
+			<button on:click={() => window.location.reload()}>Try Again</button>
 		</div>
 	</div>
 {:else if authenticated}
-	{@render props.children()}
+	<slot />
 {:else}
 	<div class="auth-loading">
 		<div class="spinner"></div>
-		<p>Kimlik doğrulanıyor...</p>
+		<p>Authenticating...</p>
 	</div>
 {/if}
 

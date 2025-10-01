@@ -6,23 +6,19 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview",
-    "storybook": "cross-env PUBLIC_CHROMATIC=true storybook dev -p 6006 public",
-    "build-storybook": "storybook build"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "howler": "^2.2.4",
-    "lodash": "^4.17.21",
     "pixi.js": "^7.4.2",
     "stake-engine": "file:../../ts-client"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^1.0.6",
     "@sveltejs/kit": "1.30.3",
-    "@sveltejs/vite-plugin-svelte": "^2.5.3",
+    "@sveltejs/vite-plugin-svelte": "2.5.3",
     "@types/howler": "^2.2.11",
-    "@types/lodash": "^4.14.202",
     "cross-env": "^7.0.3",
     "svelte": "3.59.2",
     "svelte-preprocess": "^5.1.3",

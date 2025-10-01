@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Application, Container, Sprite, Graphics, Text } from 'pixi.js';
 	import { assetLoader } from '../game/assetLoader';
-	import { stateGame } from '../game/stateGame.svelte';
+	import { stateGame } from '../game/stateGame';
 	import { eventEmitter } from '../game/eventEmitter';
 	import { GAME_CONFIG } from '../game/config';
 	import { getSymbolAssetName } from '../game/assets';

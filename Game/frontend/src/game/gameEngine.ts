@@ -3,12 +3,13 @@
  * Orchestrates RGS communication, book event processing, and game flow
  */
 
+import { get } from 'svelte/store';
 import { requestBet, requestEndRound } from '../lib/rgsRequests';
-import { stateUrlDerived } from '../lib/stateUrl.svelte';
-import { stateBet } from '../lib/stateBet.svelte';
+import { stateUrlDerived } from '../lib/stateUrl';
+import { stateBet } from '../lib/stateBet';
 import { saveGameSession, saveGameRound, logError } from '../lib/supabase';
-import { stateGame } from './stateGame.svelte';
-import { stateRGS } from './stateRGS.svelte';
+import { stateGame } from './stateGame';
+import { stateRGS } from './stateRGS';
 import { eventEmitter } from './eventEmitter';
 import { bookEventHandlerMap } from './bookEventHandlerMap';
 import { soundManager } from './soundManager';
@@ -23,10 +24,11 @@ class GameEngine {
 			console.log('[GameEngine] Initializing...');
 
 			// Save initial session to Supabase
+			const betState = get(stateBet);
 			await saveGameSession({
 				session_id: stateUrlDerived.sessionID(),
-				balance: stateBet.balanceAmount,
-				currency: stateBet.currency,
+				balance: betState.balanceAmount,
+				currency: betState.currency,
 			});
 
 			console.log('[GameEngine] Initialization complete');
@@ -53,7 +55,8 @@ class GameEngine {
 			return;
 		}
 
-		if (!stateRGS.canSpin) {
+		const rgsState = get(stateRGS);
+		if (!rgsState.canSpin) {
 			console.warn('[GameEngine] Cannot spin - conditions not met');
 			return;
 		}
@@ -69,10 +72,11 @@ class GameEngine {
 			eventEmitter.broadcast({ type: 'boardSpin' });
 			soundManager.playOnce('sfx_spin');
 
+			const betState = get(stateBet);
 			const response = await requestBet({
 				sessionID: stateUrlDerived.sessionID(),
 				rgsUrl: stateUrlDerived.rgsUrl(),
-				currency: stateBet.currency,
+				currency: betState.currency,
 				amount: betAmount,
 				mode: mode,
 			});
@@ -82,8 +86,11 @@ class GameEngine {
 			// Update balance
 			if (response.balance) {
 				stateRGS.setBalance(response.balance.amount, response.balance.currency);
-				stateBet.balanceAmount = response.balance.amount;
-				stateBet.currency = response.balance.currency;
+				stateBet.update(state => ({
+					...state,
+					balanceAmount: response.balance.amount,
+					currency: response.balance.currency
+				}));
 
 				// Save updated balance
 				await saveGameSession({
@@ -99,13 +106,14 @@ class GameEngine {
 				await this.processBookEvents(bookEvents);
 
 				// Save round to Supabase
+				const gameState = get(stateGame);
 				await saveGameRound({
 					session_id: stateUrlDerived.sessionID(),
 					round_id: response.round.betID,
 					bet_amount: betAmount,
 					win_amount: response.round.payout,
 					payout_multiplier: response.round.payoutMultiplier,
-					symbols: stateGame.board,
+					symbols: gameState.board,
 					book_events: bookEvents,
 					mode: mode,
 				});
@@ -223,8 +231,8 @@ class GameEngine {
 	}
 
 	private playWinSound(winAmount: number): void {
-		const betAmount = stateRGS.currentBetAmount;
-		const winMultiplier = winAmount / betAmount;
+		const rgsState = get(stateRGS);
+		const winMultiplier = winAmount / rgsState.currentBetAmount;
 
 		if (winMultiplier >= 100) {
 			soundManager.playOnce('sfx_win_max');
