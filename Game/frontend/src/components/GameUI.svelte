@@ -3,7 +3,7 @@
 	import { stateRGS, stateRGSDerived } from '../game/stateRGS.svelte';
 	import { soundManager } from '../game/soundManager';
 	import { gameEngine } from '../game/gameEngine';
-	import { rgsClient } from '../game/rgsClient';
+	import { stateBet } from '../lib/stateBet.svelte';
 	import SpinButton from './SpinButton.svelte';
 	import BalancePanel from './BalancePanel.svelte';
 	import WinPanel from './WinPanel.svelte';
@@ -74,7 +74,7 @@
 				>-</button>
 				<div class="bet-display">
 					<div class="bet-label">BET</div>
-					<div class="bet-amount">{rgsClient.displayAmount(stateRGS.currentBetAmount)}</div>
+					<div class="bet-amount">{stateBet.currency} {stateRGS.currentBetAmount.toFixed(2)}</div>
 				</div>
 				<button
 					class="btn-bet-control"

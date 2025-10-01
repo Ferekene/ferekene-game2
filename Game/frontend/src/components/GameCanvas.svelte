@@ -20,44 +20,68 @@
 	const REEL_SPACING = 10;
 
 	onMount(async () => {
-		// Initialize PixiJS
-		app = new Application();
-		await app.init({
-			width: window.innerWidth,
-			height: window.innerHeight,
-			backgroundColor: 0x1a1a2e,
-			resolution: window.devicePixelRatio || 1,
-			autoDensity: true,
-		});
+		try {
+			if (!canvasContainer) {
+				console.error('[GameCanvas] Canvas container not found');
+				return;
+			}
 
-		canvasContainer.appendChild(app.canvas as HTMLCanvasElement);
+			// Initialize PixiJS
+			console.log('[GameCanvas] Initializing PixiJS...');
+			app = new Application();
+			await app.init({
+				width: window.innerWidth,
+				height: window.innerHeight,
+				backgroundColor: 0x1a1a2e,
+				resolution: window.devicePixelRatio || 1,
+				autoDensity: true,
+			});
 
-		// Create layers
-		background = new Container();
-		app.stage.addChild(background);
+			if (app.canvas) {
+				canvasContainer.appendChild(app.canvas as HTMLCanvasElement);
+				console.log('[GameCanvas] Canvas mounted successfully');
+			} else {
+				console.error('[GameCanvas] Canvas element not created');
+				return;
+			}
 
-		reelContainer = new Container();
-		app.stage.addChild(reelContainer);
 
-		winLineGraphics = new Graphics();
-		app.stage.addChild(winLineGraphics);
+			// Create layers
+			background = new Container();
+			app.stage.addChild(background);
 
-		// Set up game board
-		setupGameBoard();
-		createBackground();
+			reelContainer = new Container();
+			app.stage.addChild(reelContainer);
 
-		// Listen to game events
-		setupEventListeners();
+			winLineGraphics = new Graphics();
+			app.stage.addChild(winLineGraphics);
 
-		// Handle window resize
-		window.addEventListener('resize', handleResize);
-		handleResize();
+			// Set up game board
+			setupGameBoard();
+			createBackground();
+
+			// Listen to game events
+			setupEventListeners();
+
+			// Handle window resize
+			window.addEventListener('resize', handleResize);
+			handleResize();
+
+			console.log('[GameCanvas] Initialization complete');
+		} catch (error) {
+			console.error('[GameCanvas] Failed to initialize:', error);
+		}
 	});
 
 	onDestroy(() => {
 		window.removeEventListener('resize', handleResize);
 		if (app) {
-			app.destroy(true);
+			try {
+				app.destroy(true, { children: true, texture: true });
+				console.log('[GameCanvas] Destroyed successfully');
+			} catch (error) {
+				console.error('[GameCanvas] Error during destroy:', error);
+			}
 		}
 	});
 

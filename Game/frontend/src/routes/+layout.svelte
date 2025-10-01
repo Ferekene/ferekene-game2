@@ -1,5 +1,8 @@
 <script>
 	import './styles.css';
+	import Authenticate from '../lib/Authenticate.svelte';
 </script>
 
-<slot />
+<Authenticate>
+	<slot />
+</Authenticate>

@@ -3,7 +3,10 @@
  * Orchestrates RGS communication, book event processing, and game flow
  */
 
-import { rgsClient } from './rgsClient';
+import { requestBet, requestEndRound } from '../lib/rgsRequests';
+import { stateUrlDerived } from '../lib/stateUrl.svelte';
+import { stateBet } from '../lib/stateBet.svelte';
+import { saveGameSession, saveGameRound, logError } from '../lib/supabase';
 import { stateGame } from './stateGame.svelte';
 import { stateRGS } from './stateRGS.svelte';
 import { eventEmitter } from './eventEmitter';
@@ -19,25 +22,32 @@ class GameEngine {
 		try {
 			console.log('[GameEngine] Initializing...');
 
-			rgsClient.initialize(window.location.href);
-			rgsClient.setupEventListeners();
-
-			this.setupWindowEventListeners();
-
-			await rgsClient.authenticate();
-			stateRGS.setAuthenticated(true);
+			// Save initial session to Supabase
+			await saveGameSession({
+				session_id: stateUrlDerived.sessionID(),
+				balance: stateBet.balanceAmount,
+				currency: stateBet.currency,
+			});
 
 			console.log('[GameEngine] Initialization complete');
 		} catch (error) {
 			console.error('[GameEngine] Initialization failed', error);
-			stateRGS.setError(
-				error instanceof Error ? error.message : 'Failed to initialize game'
-			);
+			const errorMessage = error instanceof Error ? error.message : 'Failed to initialize game';
+			stateRGS.setError(errorMessage);
+
+			// Log error to Supabase
+			await logError({
+				session_id: stateUrlDerived.sessionID(),
+				error_type: 'INITIALIZATION_ERROR',
+				error_message: errorMessage,
+				stack_trace: error instanceof Error ? error.stack : undefined,
+			});
+
 			throw error;
 		}
 	}
 
-	async spin(betAmount: number, mode: string = 'base'): Promise<void> {
+	async spin(betAmount: number, mode: string = 'BASE'): Promise<void> {
 		if (this.isProcessingBook) {
 			console.warn('[GameEngine] Already processing a book');
 			return;
@@ -59,13 +69,46 @@ class GameEngine {
 			eventEmitter.broadcast({ type: 'boardSpin' });
 			soundManager.playOnce('sfx_spin');
 
-			const response = await rgsClient.play(betAmount, mode);
+			const response = await requestBet({
+				sessionID: stateUrlDerived.sessionID(),
+				rgsUrl: stateUrlDerived.rgsUrl(),
+				currency: stateBet.currency,
+				amount: betAmount,
+				mode: mode,
+			});
 
 			console.log('[GameEngine] Play response received', response);
 
-			if (response.book) {
-				this.currentBook = response.book;
-				await this.processBook(response.book);
+			// Update balance
+			if (response.balance) {
+				stateRGS.setBalance(response.balance.amount, response.balance.currency);
+				stateBet.balanceAmount = response.balance.amount;
+				stateBet.currency = response.balance.currency;
+
+				// Save updated balance
+				await saveGameSession({
+					session_id: stateUrlDerived.sessionID(),
+					balance: response.balance.amount,
+					currency: response.balance.currency,
+				});
+			}
+
+			// Process round
+			if (response.round && response.round.state) {
+				const bookEvents = response.round.state;
+				await this.processBookEvents(bookEvents);
+
+				// Save round to Supabase
+				await saveGameRound({
+					session_id: stateUrlDerived.sessionID(),
+					round_id: response.round.betID,
+					bet_amount: betAmount,
+					win_amount: response.round.payout,
+					payout_multiplier: response.round.payoutMultiplier,
+					symbols: stateGame.board,
+					book_events: bookEvents,
+					mode: mode,
+				});
 			}
 
 			stateRGS.setLoading(false);
@@ -74,9 +117,18 @@ class GameEngine {
 			await this.endRound();
 		} catch (error) {
 			console.error('[GameEngine] Spin failed', error);
-			stateRGS.setError(
-				error instanceof Error ? error.message : 'Spin failed'
-			);
+			const errorMessage = error instanceof Error ? error.message : 'Spin failed';
+			stateRGS.setError(errorMessage);
+
+			// Log error
+			await logError({
+				session_id: stateUrlDerived.sessionID(),
+				error_type: 'SPIN_ERROR',
+				error_message: errorMessage,
+				stack_trace: error instanceof Error ? error.stack : undefined,
+				context: { betAmount, mode },
+			});
+
 			stateRGS.setLoading(false);
 			stateGame.setSpinning(false);
 			stateRGS.setRoundActive(false);
@@ -84,26 +136,26 @@ class GameEngine {
 		}
 	}
 
-	private async processBook(book: Book): Promise<void> {
+	private async processBookEvents(bookEvents: BookEvent[]): Promise<void> {
 		if (this.isProcessingBook) {
-			console.warn('[GameEngine] Already processing a book');
+			console.warn('[GameEngine] Already processing book events');
 			return;
 		}
 
 		this.isProcessingBook = true;
 
 		try {
-			console.log(`[GameEngine] Processing book ${book.id} with ${book.events.length} events`);
+			console.log(`[GameEngine] Processing ${bookEvents.length} book events`);
 
-			const context = { bookEvents: book.events };
+			const context = { bookEvents };
 
-			for (const bookEvent of book.events) {
+			for (const bookEvent of bookEvents) {
 				await this.processBookEvent(bookEvent, context);
 			}
 
-			console.log('[GameEngine] Book processing complete');
+			console.log('[GameEngine] Book events processing complete');
 		} catch (error) {
-			console.error('[GameEngine] Book processing failed', error);
+			console.error('[GameEngine] Book events processing failed', error);
 			throw error;
 		} finally {
 			this.isProcessingBook = false;
@@ -188,7 +240,10 @@ class GameEngine {
 	private async endRound(): Promise<void> {
 		try {
 			console.log('[GameEngine] Ending round');
-			await rgsClient.endRound();
+			await requestEndRound({
+				sessionID: stateUrlDerived.sessionID(),
+				rgsUrl: stateUrlDerived.rgsUrl(),
+			});
 			stateRGS.setRoundActive(false);
 			stateRGS.updateCanSpin();
 		} catch (error) {
@@ -196,25 +251,7 @@ class GameEngine {
 		}
 	}
 
-	private setupWindowEventListeners(): void {
-		window.addEventListener('balanceUpdate', (event: Event) => {
-			const customEvent = event as CustomEvent<{ amount: number; currency: string }>;
-			console.log('[GameEngine] Balance update received', customEvent.detail);
-			stateRGS.setBalance(customEvent.detail.amount, customEvent.detail.currency);
-			stateRGS.updateCanSpin();
-		});
 
-		window.addEventListener('roundActive', (event: Event) => {
-			const customEvent = event as CustomEvent<{ active: boolean }>;
-			console.log('[GameEngine] Round active state changed', customEvent.detail);
-			stateRGS.setRoundActive(customEvent.detail.active);
-			stateRGS.updateCanSpin();
-		});
-	}
-
-	getCurrentBook(): Book | null {
-		return this.currentBook;
-	}
 
 	isProcessing(): boolean {
 		return this.isProcessingBook;

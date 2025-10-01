@@ -17,15 +17,15 @@
 		try {
 			console.log('[Game] Starting initialization...');
 
-			// Initialize RGS Client first
+			// Initialize game engine
 			loadProgress = 10;
 			await gameEngine.initialize();
-			console.log('[Game] RGS initialized');
+			console.log('[Game] Game engine initialized');
 
 			// Preload all visual assets
 			loadProgress = 20;
 			await assetLoader.preloadAll((progress) => {
-				loadProgress = 20 + (progress * 0.6);
+				loadProgress = 20 + progress * 0.6;
 			});
 			console.log('[Game] Visual assets loaded');
 
@@ -36,7 +36,7 @@
 
 			// Small delay to show 100%
 			loadProgress = 100;
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, 500));
 
 			isLoading = false;
 
