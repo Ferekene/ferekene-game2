@@ -9,13 +9,48 @@
 
 	let authenticated = false;
 	let authError: string | null = null;
+	let isDemoMode = false;
 
 	const MOST_USED_BET_INDEXES = [0, 4, 9, 19, 29, 49, 99];
+	const DEFAULT_BET_LEVELS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+
+	const setupDemoMode = () => {
+		console.log('[Auth] Setting up demo mode...');
+
+		stateBet.update(state => ({
+			...state,
+			currency: 'USD',
+			balanceAmount: 1000,
+			betAmount: 1,
+			wageredBetAmount: 1,
+		}));
+
+		const betMenuOptions = DEFAULT_BET_LEVELS.filter((_, index) =>
+			MOST_USED_BET_INDEXES.includes(index),
+		);
+
+		stateConfig.update(state => ({
+			...state,
+			betAmountOptions: DEFAULT_BET_LEVELS,
+			betMenuOptions,
+		}));
+
+		stateRGS.setBalance(1000, 'USD');
+		stateRGS.setBetAmount(1);
+		stateRGS.setAvailableBetLevels(DEFAULT_BET_LEVELS);
+		stateRGS.setAuthenticated(true);
+		stateRGS.updateCanSpin();
+
+		console.log('[Auth] Demo mode configured successfully');
+	};
 
 	const authenticate = async () => {
 		try {
 			if (!isValidSession()) {
-				throw new Error('Missing sessionID or rgs_url in URL parameters');
+				console.warn('[Auth] Missing URL parameters. Starting in demo mode...');
+				isDemoMode = true;
+				setupDemoMode();
+				return;
 			}
 
 			console.log('[Auth] Starting authentication...');
@@ -142,17 +177,32 @@
 {#if authError}
 	<div class="auth-error">
 		<div class="error-container">
-			<h2>🔒 Authentication Error</h2>
-			<p>{authError}</p>
+			<h2>Authentication Error</h2>
+			<p class="error-message">{authError}</p>
+			<div class="error-details">
+				<p class="error-hint">This game requires the following URL parameters:</p>
+				<ul>
+					<li><code>sessionID</code> - Your session identifier</li>
+					<li><code>rgs_url</code> - The RGS server URL</li>
+				</ul>
+				<p class="error-example">
+					Example: <code>?sessionID=abc123&rgs_url=https://rgs.example.com</code>
+				</p>
+			</div>
 			<button on:click={() => window.location.reload()}>Try Again</button>
 		</div>
 	</div>
 {:else if authenticated}
+	{#if isDemoMode}
+		<div class="demo-banner">
+			DEMO MODE - No RGS connection
+		</div>
+	{/if}
 	<slot />
 {:else}
 	<div class="auth-loading">
 		<div class="spinner"></div>
-		<p>Authenticating...</p>
+		<p>{isDemoMode ? 'Loading Demo Mode...' : 'Authenticating...'}</p>
 	</div>
 {/if}
 
@@ -168,10 +218,11 @@
 		align-items: center;
 		justify-content: center;
 		z-index: 10000;
+		padding: 2rem;
 	}
 
 	.error-container {
-		max-width: 500px;
+		max-width: 600px;
 		background: rgba(255, 255, 255, 0.05);
 		border: 2px solid #ff4444;
 		border-radius: 15px;
@@ -185,9 +236,51 @@
 		font-size: 1.5rem;
 	}
 
-	.error-container p {
+	.error-message {
 		color: #fff;
-		margin: 0 0 2rem 0;
+		margin: 0 0 1.5rem 0;
+		font-size: 1.1rem;
+	}
+
+	.error-details {
+		background: rgba(0, 0, 0, 0.3);
+		border-radius: 8px;
+		padding: 1.5rem;
+		margin: 1.5rem 0;
+		text-align: left;
+	}
+
+	.error-hint {
+		color: #ffd700;
+		margin: 0 0 1rem 0;
+		font-weight: bold;
+	}
+
+	.error-details ul {
+		margin: 0 0 1rem 0;
+		padding-left: 1.5rem;
+	}
+
+	.error-details li {
+		color: rgba(255, 255, 255, 0.9);
+		margin: 0.5rem 0;
+		line-height: 1.6;
+	}
+
+	.error-example {
+		color: rgba(255, 255, 255, 0.7);
+		font-size: 0.9rem;
+		margin: 1rem 0 0 0;
+		line-height: 1.6;
+	}
+
+	code {
+		background: rgba(255, 215, 0, 0.1);
+		color: #ffd700;
+		padding: 0.2rem 0.5rem;
+		border-radius: 4px;
+		font-family: 'Courier New', monospace;
+		font-size: 0.9em;
 	}
 
 	.error-container button {
@@ -200,11 +293,28 @@
 		font-weight: bold;
 		cursor: pointer;
 		transition: all 0.3s ease;
+		margin-top: 1rem;
 	}
 
 	.error-container button:hover {
 		background: #ffed4e;
 		transform: translateY(-2px);
+		box-shadow: 0 4px 8px rgba(255, 215, 0, 0.4);
+	}
+
+	.demo-banner {
+		position: fixed;
+		top: 10px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(255, 165, 0, 0.9);
+		color: #000;
+		padding: 0.5rem 1.5rem;
+		border-radius: 8px;
+		font-weight: bold;
+		z-index: 10001;
+		font-size: 0.9rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 	}
 
 	.auth-loading {
@@ -240,5 +350,20 @@
 	.auth-loading p {
 		color: #ffd700;
 		font-size: 1.2rem;
+	}
+
+	@media (max-width: 600px) {
+		.error-container {
+			padding: 2rem 1.5rem;
+		}
+
+		.error-details {
+			padding: 1rem;
+		}
+
+		.demo-banner {
+			font-size: 0.8rem;
+			padding: 0.4rem 1rem;
+		}
 	}
 </style>
