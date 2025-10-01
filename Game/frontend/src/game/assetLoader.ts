@@ -33,6 +33,9 @@ export class AssetLoader {
 			const imageAssets = ALL_ASSETS.filter(a => a.type === 'image');
 			const totalAssets = imageAssets.length;
 			let loadedCount = 0;
+			let failedCount = 0;
+
+			console.log(`[AssetLoader] Loading ${totalAssets} visual assets...`);
 
 			// Add all assets to PixiJS Assets system
 			imageAssets.forEach(asset => {
@@ -46,22 +49,33 @@ export class AssetLoader {
 					this.loadedAssets.add(asset.name);
 					loadedCount++;
 					this.loadProgress = (loadedCount / totalAssets) * 100;
-					onProgress?.(this.loadProgress);
+					onProgress?.(this.loadProgress / 100);
 				} catch (error) {
-					console.error(`Failed to load asset: ${asset.name}`, error);
-					// Continue loading other assets even if one fails
+					console.warn(`[AssetLoader] Failed to load: ${asset.name}`, error);
+					failedCount++;
+					loadedCount++; // Count as processed
+					this.loadProgress = (loadedCount / totalAssets) * 100;
+					onProgress?.(this.loadProgress / 100);
 				}
 			});
 
 			await Promise.all(promises);
 
+			console.log(`[AssetLoader] Asset loading complete: ${loadedCount - failedCount} loaded, ${failedCount} failed`);
+
+			if (failedCount > 0) {
+				console.warn(`[AssetLoader] Some assets failed to load (${failedCount}/${totalAssets}) - game will continue with available assets`);
+			}
+
 			// Note: Sound assets are loaded separately by the sound manager
 			this.loadProgress = 100;
 			this.isLoading = false;
 		} catch (error) {
-			this.loadError = error instanceof Error ? error.message : 'Failed to load assets';
+			const errorMsg = error instanceof Error ? error.message : 'Failed to load assets';
+			console.error('[AssetLoader] Critical error during asset loading:', errorMsg);
+			this.loadError = errorMsg;
 			this.isLoading = false;
-			throw error;
+			// Don't throw - allow game to continue
 		}
 	}
 

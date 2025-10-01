@@ -1,6 +1,11 @@
 <script lang="ts">
 	export let progress: number;
 	export let error: string | null = null;
+
+	$: loadingStage = progress < 20 ? 'Initializing...' :
+		progress < 80 ? 'Loading assets...' :
+		progress < 100 ? 'Loading audio...' :
+		'Ready!';
 </script>
 
 <div class="loading-screen">
@@ -11,9 +16,9 @@
 
 		{#if error}
 			<div class="error">
-				<p>Failed to load game</p>
+				<p>Loading Warning</p>
 				<p class="error-message">{error}</p>
-				<button on:click={() => window.location.reload()}>Reload</button>
+				<p class="error-note">Game will continue loading...</p>
 			</div>
 		{:else}
 			<div class="progress-container">
@@ -23,7 +28,7 @@
 				<div class="progress-text">{Math.round(progress)}%</div>
 			</div>
 
-			<p class="loading-tip">Preparing your fortune...</p>
+			<p class="loading-tip">{loadingStage}</p>
 		{/if}
 	</div>
 </div>

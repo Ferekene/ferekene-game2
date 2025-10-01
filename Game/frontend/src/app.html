@@ -4,7 +4,28 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎰</text></svg>" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Golden Fortune Slots</title>
 		%sveltekit.head%
+		<script>
+			// Immediate feedback for debugging
+			console.log('[HTML] Page loaded - Golden Fortune Slots initializing...');
+			console.log('[HTML] URL:', window.location.href);
+			console.log('[HTML] Search params:', window.location.search);
+
+			// Global error handler
+			window.addEventListener('error', function(e) {
+				console.error('[GLOBAL ERROR]', e.error || e.message);
+			});
+
+			window.addEventListener('unhandledrejection', function(e) {
+				console.error('[UNHANDLED REJECTION]', e.reason);
+			});
+
+			// Loading indicator
+			window.addEventListener('load', function() {
+				console.log('[HTML] Window load event fired - DOM ready');
+			});
+		</script>
 	</head>
 	<body style="margin: 0; padding: 0; overflow: hidden; background-color: #000">
 		<div style="display: contents">%sveltekit.body%</div>

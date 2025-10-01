@@ -9,40 +9,8 @@
 
 	let authenticated = false;
 	let authError: string | null = null;
-	let isDemoMode = false;
 
 	const MOST_USED_BET_INDEXES = [0, 4, 9, 19, 29, 49, 99];
-	const DEFAULT_BET_LEVELS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
-
-	const setupDemoMode = () => {
-		console.log('[Auth] Setting up demo mode...');
-
-		stateBet.update(state => ({
-			...state,
-			currency: 'USD',
-			balanceAmount: 1000,
-			betAmount: 1,
-			wageredBetAmount: 1,
-		}));
-
-		const betMenuOptions = DEFAULT_BET_LEVELS.filter((_, index) =>
-			MOST_USED_BET_INDEXES.includes(index),
-		);
-
-		stateConfig.update(state => ({
-			...state,
-			betAmountOptions: DEFAULT_BET_LEVELS,
-			betMenuOptions,
-		}));
-
-		stateRGS.setBalance(1000, 'USD');
-		stateRGS.setBetAmount(1);
-		stateRGS.setAvailableBetLevels(DEFAULT_BET_LEVELS);
-		stateRGS.setAuthenticated(true);
-		stateRGS.updateCanSpin();
-
-		console.log('[Auth] Demo mode configured successfully');
-	};
 
 	const authenticate = async () => {
 		try {
@@ -144,14 +112,6 @@
 			console.log('[Auth] Authentication successful!');
 		} catch (error) {
 			console.error('[Auth] Authentication failed:', error);
-
-			if (error instanceof Error && error.message.includes('sessionID is not in set in url parameters')) {
-				console.warn('[Auth] Missing URL parameters. Starting in demo mode...');
-				isDemoMode = true;
-				setupDemoMode();
-				return;
-			}
-
 			authError = error instanceof Error ? error.message : 'Authentication failed';
 			stateRGS.setError(authError);
 		}
@@ -172,31 +132,23 @@
 	<div class="auth-error">
 		<div class="error-container">
 			<h2>Authentication Error</h2>
-			<p class="error-message">{authError}</p>
+			<p class="error-message">Failed to connect to Stake Engine RGS</p>
 			<div class="error-details">
-				<p class="error-hint">This game requires the following URL parameters:</p>
-				<ul>
-					<li><code>sessionID</code> - Your session identifier</li>
-					<li><code>rgs_url</code> - The RGS server URL</li>
-				</ul>
-				<p class="error-example">
-					Example: <code>?sessionID=abc123&rgs_url=https://rgs.example.com</code>
+				<p class="error-hint">This game requires Stake Engine RGS connection.</p>
+				<p class="error-note">
+					Please ensure this game is launched through Stake Engine platform with valid session parameters.
 				</p>
+				<p class="error-technical">Error: {authError}</p>
 			</div>
 			<button on:click={() => window.location.reload()}>Try Again</button>
 		</div>
 	</div>
 {:else if authenticated}
-	{#if isDemoMode}
-		<div class="demo-banner">
-			DEMO MODE - No RGS connection
-		</div>
-	{/if}
 	<slot />
 {:else}
 	<div class="auth-loading">
 		<div class="spinner"></div>
-		<p>{isDemoMode ? 'Loading Demo Mode...' : 'Authenticating...'}</p>
+		<p>Connecting to Stake Engine...</p>
 	</div>
 {/if}
 
@@ -250,31 +202,19 @@
 		font-weight: bold;
 	}
 
-	.error-details ul {
-		margin: 0 0 1rem 0;
-		padding-left: 1.5rem;
-	}
-
-	.error-details li {
-		color: rgba(255, 255, 255, 0.9);
-		margin: 0.5rem 0;
+	.error-note {
+		color: rgba(255, 255, 255, 0.8);
+		font-size: 0.95rem;
+		margin: 1rem 0;
 		line-height: 1.6;
 	}
 
-	.error-example {
-		color: rgba(255, 255, 255, 0.7);
-		font-size: 0.9rem;
+	.error-technical {
+		color: rgba(255, 255, 255, 0.6);
+		font-size: 0.85rem;
 		margin: 1rem 0 0 0;
-		line-height: 1.6;
-	}
-
-	code {
-		background: rgba(255, 215, 0, 0.1);
-		color: #ffd700;
-		padding: 0.2rem 0.5rem;
-		border-radius: 4px;
 		font-family: 'Courier New', monospace;
-		font-size: 0.9em;
+		word-break: break-all;
 	}
 
 	.error-container button {
@@ -294,21 +234,6 @@
 		background: #ffed4e;
 		transform: translateY(-2px);
 		box-shadow: 0 4px 8px rgba(255, 215, 0, 0.4);
-	}
-
-	.demo-banner {
-		position: fixed;
-		top: 10px;
-		left: 50%;
-		transform: translateX(-50%);
-		background: rgba(255, 165, 0, 0.9);
-		color: #000;
-		padding: 0.5rem 1.5rem;
-		border-radius: 8px;
-		font-weight: bold;
-		z-index: 10001;
-		font-size: 0.9rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 	}
 
 	.auth-loading {
@@ -353,11 +278,6 @@
 
 		.error-details {
 			padding: 1rem;
-		}
-
-		.demo-banner {
-			font-size: 0.8rem;
-			padding: 0.4rem 1rem;
 		}
 	}
 </style>

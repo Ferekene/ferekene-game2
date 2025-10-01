@@ -14,41 +14,51 @@
 	let loadError: string | null = null;
 
 	onMount(async () => {
-		try {
-			console.log('[Game] Starting initialization...');
+		console.log('[Game] Starting initialization...');
 
-			// Initialize game engine
-			loadProgress = 10;
+		// Initialize game engine (non-blocking on errors)
+		loadProgress = 10;
+		try {
 			await gameEngine.initialize();
 			console.log('[Game] Game engine initialized');
+		} catch (error) {
+			console.warn('[Game] Game engine initialization warning:', error);
+			// Continue anyway - Supabase errors shouldn't block game
+		}
 
-			// Preload all visual assets
-			loadProgress = 20;
+		// Preload all visual assets (non-blocking on individual failures)
+		loadProgress = 20;
+		try {
 			await assetLoader.preloadAll((progress) => {
-				loadProgress = 20 + progress * 0.6;
+				loadProgress = 20 + progress * 60;
 			});
 			console.log('[Game] Visual assets loaded');
+		} catch (error) {
+			console.error('[Game] Asset loading error:', error);
+			loadError = 'Some assets failed to load. Game may have visual issues.';
+			// Continue anyway
+		}
 
-			// Preload all sound assets
-			loadProgress = 80;
+		// Preload all sound assets (non-blocking on failures)
+		loadProgress = 80;
+		try {
 			await soundManager.preloadAll();
 			console.log('[Game] Sound assets loaded');
-
-			// Small delay to show 100%
-			loadProgress = 100;
-			await new Promise((resolve) => setTimeout(resolve, 500));
-
-			isLoading = false;
-
-			// Start main background music
-			soundManager.playMusic('bgm_main', 2000);
-
-			console.log('[Game] Initialization complete');
 		} catch (error) {
-			console.error('[Game] Failed to load game', error);
-			loadError = error instanceof Error ? error.message : 'Failed to load game';
-			stateRGS.setError(loadError);
+			console.warn('[Game] Sound loading warning:', error);
+			// Game can run without sound
 		}
+
+		// Small delay to show 100%
+		loadProgress = 100;
+		await new Promise((resolve) => setTimeout(resolve, 300));
+
+		isLoading = false;
+
+		// Start main background music (safe to fail)
+		soundManager.playMusic('bgm_main', 2000);
+
+		console.log('[Game] Initialization complete - Game ready!');
 	});
 </script>
 

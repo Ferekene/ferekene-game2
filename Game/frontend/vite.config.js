@@ -11,14 +11,19 @@ export default defineConfig({
 		target: 'esnext',
 		minify: 'esbuild',
 		sourcemap: false,
+		cssCodeSplit: false,
 		rollupOptions: {
 			output: {
-				manualChunks: undefined
+				manualChunks: undefined,
+				inlineDynamicImports: false
 			}
 		}
 	},
 	optimizeDeps: {
 		include: ['stake-engine', 'pixi.js', 'howler'],
 		exclude: ['svelte-preprocess']
-	}
+	},
+	base: './',
+	publicDir: 'static',
+	logLevel: 'info'
 });

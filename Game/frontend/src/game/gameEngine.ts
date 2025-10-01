@@ -23,29 +23,39 @@ class GameEngine {
 		try {
 			console.log('[GameEngine] Initializing...');
 
-			// Save initial session to Supabase
-			const betState = get(stateBet);
-			await saveGameSession({
-				session_id: stateUrlDerived.sessionID(),
-				balance: betState.balanceAmount,
-				currency: betState.currency,
-			});
+			// Try to save initial session to Supabase (non-blocking)
+			try {
+				const betState = get(stateBet);
+				await saveGameSession({
+					session_id: stateUrlDerived.sessionID(),
+					balance: betState.balanceAmount,
+					currency: betState.currency,
+				});
+				console.log('[GameEngine] Session saved to Supabase');
+			} catch (dbError) {
+				console.warn('[GameEngine] Supabase session save failed (non-critical):', dbError);
+				// Continue - database is optional
+			}
 
 			console.log('[GameEngine] Initialization complete');
 		} catch (error) {
 			console.error('[GameEngine] Initialization failed', error);
 			const errorMessage = error instanceof Error ? error.message : 'Failed to initialize game';
-			stateRGS.setError(errorMessage);
 
-			// Log error to Supabase
-			await logError({
-				session_id: stateUrlDerived.sessionID(),
-				error_type: 'INITIALIZATION_ERROR',
-				error_message: errorMessage,
-				stack_trace: error instanceof Error ? error.stack : undefined,
-			});
+			// Try to log error to Supabase (non-blocking)
+			try {
+				await logError({
+					session_id: stateUrlDerived.sessionID(),
+					error_type: 'INITIALIZATION_ERROR',
+					error_message: errorMessage,
+					stack_trace: error instanceof Error ? error.stack : undefined,
+				});
+			} catch (dbError) {
+				console.warn('[GameEngine] Error logging to Supabase failed:', dbError);
+			}
 
-			throw error;
+			// Don't throw - allow game to continue
+			console.warn('[GameEngine] Continuing despite initialization error');
 		}
 	}
 

@@ -32,19 +32,36 @@ export class SoundManager {
 
 	async preloadAll(): Promise<void> {
 		const allSounds = [...SOUND_MUSIC, ...SOUND_SFX];
+		let loadedCount = 0;
+		let failedCount = 0;
+
+		console.log(`[SoundManager] Loading ${allSounds.length} audio files...`);
 
 		const promises = allSounds.map(sound => {
 			return new Promise<void>((resolve) => {
 				const category: SoundCategory = SOUND_MUSIC.includes(sound) ? 'music' : 'sfx';
+
+				// Set timeout to prevent hanging
+				const timeout = setTimeout(() => {
+					console.warn(`[SoundManager] Timeout loading: ${sound.name}`);
+					failedCount++;
+					resolve();
+				}, 3000);
 
 				const howl = new Howl({
 					src: [sound.url],
 					loop: category === 'music',
 					volume: this.getEffectiveVolume(category),
 					preload: true,
-					onload: () => resolve(),
+					onload: () => {
+						clearTimeout(timeout);
+						loadedCount++;
+						resolve();
+					},
 					onloaderror: (id, error) => {
-						console.error(`Failed to load sound: ${sound.name}`, error);
+						clearTimeout(timeout);
+						console.warn(`[SoundManager] Failed to load: ${sound.name}`, error);
+						failedCount++;
 						resolve(); // Continue even if one fails
 					},
 				});
@@ -54,22 +71,33 @@ export class SoundManager {
 		});
 
 		await Promise.all(promises);
+
+		console.log(`[SoundManager] Audio loading complete: ${loadedCount} loaded, ${failedCount} failed`);
+
+		if (failedCount === allSounds.length) {
+			console.warn('[SoundManager] All audio files failed to load - game will run without sound');
+		} else if (failedCount > 0) {
+			console.warn(`[SoundManager] Some audio files failed to load (${failedCount}/${allSounds.length}) - game will continue with available sounds`);
+		}
 	}
 
 	playOnce(name: string, volume: number = 1.0): void {
 		const sound = this.sounds.get(name);
 		if (!sound) {
-			console.warn(`Sound not found: ${name}`);
-			return;
+			return; // Silently skip if sound not loaded
 		}
 
 		if (this.isMuted('sfx') || this.isMuted('master')) {
 			return;
 		}
 
-		const effectiveVolume = this.getEffectiveVolume('sfx') * volume;
-		sound.howl.volume(effectiveVolume);
-		sound.howl.play();
+		try {
+			const effectiveVolume = this.getEffectiveVolume('sfx') * volume;
+			sound.howl.volume(effectiveVolume);
+			sound.howl.play();
+		} catch (error) {
+			console.warn(`[SoundManager] Failed to play sound: ${name}`, error);
+		}
 	}
 
 	playMusic(name: string, fadeIn: number = 1000): void {
@@ -84,8 +112,7 @@ export class SoundManager {
 
 		const sound = this.sounds.get(name);
 		if (!sound) {
-			console.warn(`Music not found: ${name}`);
-			return;
+			return; // Silently skip if music not loaded
 		}
 
 		if (this.isMuted('music') || this.isMuted('master')) {
@@ -93,10 +120,14 @@ export class SoundManager {
 			return;
 		}
 
-		this.currentMusic = name;
-		sound.howl.volume(0);
-		sound.howl.play();
-		sound.howl.fade(0, this.getEffectiveVolume('music'), fadeIn);
+		try {
+			this.currentMusic = name;
+			sound.howl.volume(0);
+			sound.howl.play();
+			sound.howl.fade(0, this.getEffectiveVolume('music'), fadeIn);
+		} catch (error) {
+			console.warn(`[SoundManager] Failed to play music: ${name}`, error);
+		}
 	}
 
 	stopMusic(fadeOut: number = 1000): void {

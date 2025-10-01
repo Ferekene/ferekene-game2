@@ -10,10 +10,11 @@ const config = {
 			assets: 'build',
 			fallback: 'index.html',
 			precompress: false,
-			strict: false
+			strict: true
 		}),
 		paths: {
-			base: ''
+			base: '',
+			relative: true
 		},
 		appDir: '_app'
 	}
