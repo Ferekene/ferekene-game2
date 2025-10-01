@@ -7,11 +7,11 @@
 	import { assetLoader } from '../game/assetLoader';
 	import { soundManager } from '../game/soundManager';
 	import { gameEngine } from '../game/gameEngine';
-	import { stateRGS } from '../game/stateRGS.svelte';
+	import { stateRGS } from '../game/stateRGS';
 
-	let isLoading = $state(true);
-	let loadProgress = $state(0);
-	let loadError = $state<string | null>(null);
+	let isLoading = true;
+	let loadProgress = 0;
+	let loadError: string | null = null;
 
 	onMount(async () => {
 		try {

@@ -1,11 +1,20 @@
 <script lang="ts">
-	interface Props {
-		disabled?: boolean;
-		onclick?: () => void;
+	export let disabled: boolean = false;
+	export let onclick: (() => void) | undefined = undefined;
+
+	let isPressed = false;
+
+	function handleMouseDown() {
+		isPressed = true;
 	}
 
-	let { disabled = false, onclick }: Props = $props();
-	let isPressed = $state(false);
+	function handleMouseUp() {
+		isPressed = false;
+	}
+
+	function handleMouseLeave() {
+		isPressed = false;
+	}
 </script>
 
 <button
@@ -13,10 +22,10 @@
 	class:disabled
 	class:pressed={isPressed}
 	{disabled}
-	{onclick}
-	onmousedown={() => (isPressed = true)}
-	onmouseup={() => (isPressed = false)}
-	onmouseleave={() => (isPressed = false)}
+	on:click={onclick}
+	on:mousedown={handleMouseDown}
+	on:mouseup={handleMouseUp}
+	on:mouseleave={handleMouseLeave}
 >
 	<div class="button-inner">
 		<div class="button-glow"></div>

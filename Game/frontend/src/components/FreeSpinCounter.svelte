@@ -1,10 +1,6 @@
 <script lang="ts">
-	interface Props {
-		current: number;
-		total: number;
-	}
-
-	let { current, total }: Props = $props();
+	export let current: number;
+	export let total: number;
 </script>
 
 <div class="freespin-counter">
@@ -31,7 +27,6 @@
 		border-radius: 15px;
 		box-shadow: 0 0 40px rgba(138, 43, 226, 0.6);
 		overflow: hidden;
-		position: relative;
 		animation: float 3s ease-in-out infinite;
 	}
 

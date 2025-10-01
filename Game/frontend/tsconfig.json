@@ -1,5 +1,4 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": true,
@@ -8,9 +7,13 @@
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": true,
-		"strict": true,
-		"moduleResolution": "bundler",
+		"strict": false,
+		"moduleResolution": "node",
 		"target": "esnext",
-		"module": "esnext"
-	}
+		"module": "esnext",
+		"lib": ["esnext", "dom"],
+		"types": ["vite/client"]
+	},
+	"include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
+	"exclude": ["node_modules"]
 }

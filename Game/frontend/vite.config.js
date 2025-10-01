@@ -18,6 +18,7 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: {
-		include: ['stake-engine', 'pixi.js', 'howler', 'xstate']
+		include: ['stake-engine', 'pixi.js', 'howler'],
+		exclude: ['svelte-preprocess']
 	}
 });

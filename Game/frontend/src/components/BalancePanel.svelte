@@ -1,9 +1,5 @@
 <script lang="ts">
-	interface Props {
-		balance: number;
-	}
-
-	let { balance }: Props = $props();
+	export let balance: number;
 
 	function formatCurrency(amount: number): string {
 		return `$${amount.toFixed(2)}`;

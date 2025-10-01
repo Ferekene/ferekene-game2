@@ -1,10 +1,6 @@
 <script lang="ts">
-	interface Props {
-		progress: number;
-		error?: string | null;
-	}
-
-	let { progress, error = null }: Props = $props();
+	export let progress: number;
+	export let error: string | null = null;
 </script>
 
 <div class="loading-screen">
@@ -17,7 +13,7 @@
 			<div class="error">
 				<p>Failed to load game</p>
 				<p class="error-message">{error}</p>
-				<button onclick={() => window.location.reload()}>Reload</button>
+				<button on:click={() => window.location.reload()}>Reload</button>
 			</div>
 		{:else}
 			<div class="progress-container">

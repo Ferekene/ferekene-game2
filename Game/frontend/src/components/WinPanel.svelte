@@ -1,20 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	export let win: number;
 
-	interface Props {
-		win: number;
-	}
-
-	let { win }: Props = $props();
-	let displayWin = $state(0);
+	let displayWin = 0;
 	let previousWin = 0;
 
-	$effect(() => {
-		if (win !== previousWin) {
-			animateWinCount(previousWin, win);
-			previousWin = win;
-		}
-	});
+	$: if (win !== previousWin) {
+		animateWinCount(previousWin, win);
+		previousWin = win;
+	}
 
 	function animateWinCount(from: number, to: number) {
 		const duration = 1000;

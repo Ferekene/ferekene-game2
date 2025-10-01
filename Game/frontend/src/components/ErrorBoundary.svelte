@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { stateRGS } from '../game/stateRGS.svelte';
-	import { gameEngine } from '../game/gameEngine';
+	import { stateRGS } from '../game/stateRGS';
 
-	let { children } = $props();
+	let error: string | null = null;
+
+	const unsubscribe = stateRGS.subscribe(($state) => {
+		error = $state.error;
+	});
 
 	function handleRetry() {
 		stateRGS.setError(null);
@@ -14,23 +17,23 @@
 	}
 </script>
 
-{#if stateRGS.error}
+{#if error}
 	<div class="error-boundary">
 		<div class="error-container">
 			<div class="error-icon">⚠️</div>
-			<h2>Oyun Yüklenemedi</h2>
-			<p class="error-message">{stateRGS.error}</p>
+			<h2>Game Failed to Load</h2>
+			<p class="error-message">{error}</p>
 			<div class="error-actions">
-				<button class="btn-retry" onclick={handleRetry}>Tekrar Dene</button>
-				<button class="btn-reload" onclick={handleReload}>Sayfayı Yenile</button>
+				<button class="btn-retry" on:click={handleRetry}>Try Again</button>
+				<button class="btn-reload" on:click={handleReload}>Reload Page</button>
 			</div>
 			<p class="error-hint">
-				Sorun devam ederse, lütfen tarayıcı önbelleğinizi temizleyip tekrar deneyin.
+				If the problem persists, please clear your browser cache and try again.
 			</p>
 		</div>
 	</div>
 {:else}
-	{@render children()}
+	<slot />
 {/if}
 
 <style>
